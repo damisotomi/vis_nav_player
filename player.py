@@ -1,6 +1,7 @@
 from vis_nav_game import Player, Action
 import pygame
 import cv2
+import matplotlib.pyplot as plt
 
 
 class KeyboardPlayerPyGame(Player):
@@ -9,6 +10,11 @@ class KeyboardPlayerPyGame(Player):
         self.last_act = Action.IDLE
         self.screen = None
         self.keymap = None
+        self.movements = []
+        self.position = [0, 0]  # Starting position on the grid
+        self.direction = [0, 1]  # Initial direction (facing "up", north)
+        self.consecutive_presses = 0  # Track consecutive presses
+        self.last_key_pressed = None  # Track the last key pressed
         super(KeyboardPlayerPyGame, self).__init__()
 
     def reset(self):
@@ -24,7 +30,8 @@ class KeyboardPlayerPyGame(Player):
             pygame.K_UP: Action.FORWARD,
             pygame.K_DOWN: Action.BACKWARD,
             pygame.K_SPACE: Action.CHECKIN,
-            pygame.K_ESCAPE: Action.QUIT
+            pygame.K_ESCAPE: Action.QUIT,
+            pygame.K_p: 'PLOT'  # Add the 'P' key to trigger plotting
         }
 
     def act(self):
@@ -32,17 +39,109 @@ class KeyboardPlayerPyGame(Player):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 self.last_act = Action.QUIT
+                self.plot_movements()  # Call this function on quit
                 return Action.QUIT
 
             if event.type == pygame.KEYDOWN:
                 if event.key in self.keymap:
-                    self.last_act |= self.keymap[event.key]
+                    action = self.keymap[event.key]
+
+                    # Handle the case for 'P' key to trigger plotting
+                    if action == 'PLOT':
+                        self.plot_movements()  # Plot movements when 'P' is pressed
+                    else:
+                        # Handle consecutive key presses
+                        if self.last_key_pressed == action:
+                            self.consecutive_presses += 1
+                        else:
+                            self.consecutive_presses = 1
+                            self.last_key_pressed = action
+
+                        # Special handling for forward/backward and left/right
+                        if action == Action.FORWARD or action == Action.BACKWARD:
+                            self.update_position_cumulative(action)
+                        elif action == Action.LEFT or action == Action.RIGHT:
+                            self.update_rotation_cumulative(action)
+
+                        self.last_act = action  # Store the last action, don't use |= here for strings
+
                 else:
                     self.show_target_images()
             if event.type == pygame.KEYUP:
-                if event.key in self.keymap:
-                    self.last_act ^= self.keymap[event.key]
+                if event.key in self.keymap and self.keymap[event.key] != 'PLOT':
+                    self.last_act = Action.IDLE  # Reset to IDLE when key is released
         return self.last_act
+
+
+    def update_position_cumulative(self, action):
+        if self.consecutive_presses >= 3:
+            # Only move after 3 consecutive presses
+            if action == Action.FORWARD:
+                self.position[0] += self.direction[0]
+                self.position[1] += self.direction[1]
+            elif action == Action.BACKWARD:
+                self.position[0] -= self.direction[0]
+                self.position[1] -= self.direction[1]
+
+            # Log the movement
+            self.movements.append(action)
+
+            # Reset the consecutive presses after movement
+            self.consecutive_presses = 0
+
+    def update_rotation_cumulative(self, action):
+        if 7 <= self.consecutive_presses < 25:
+            # Rotate 90 degrees
+            if action == Action.LEFT:
+                self.direction = [-self.direction[1], self.direction[0]]  # Turn left
+            elif action == Action.RIGHT:
+                self.direction = [self.direction[1], -self.direction[0]]  # Turn right
+        elif self.consecutive_presses >= 25:
+            # Rotate 180 degrees
+            self.direction = [-self.direction[0], -self.direction[1]]
+
+        # Add the rotation to the log
+        self.movements.append(action)
+
+        # Reset the consecutive presses after rotation
+        self.consecutive_presses = 0
+
+    def plot_movements(self):
+        # Starting position
+        x, y = [0], [0]
+
+        # Recalculate positions based on movements
+        pos = [0, 0]
+        direction = [0, 1]  # Initially facing up (north)
+
+        for action in self.movements:
+            if action == Action.FORWARD:
+                pos[0] += direction[0]
+                pos[1] += direction[1]
+            elif action == Action.BACKWARD:
+                pos[0] -= direction[0]
+                pos[1] -= direction[1]
+            elif action == Action.LEFT:
+                direction = [-direction[1], direction[0]]  # Turn left
+            elif action == Action.RIGHT:
+                direction = [direction[1], -direction[0]]  # Turn right
+
+            x.append(pos[0])
+            y.append(pos[1])
+
+        # Plot the movements
+        plt.figure(figsize=(6, 6))
+        plt.plot(x, y, marker='o', color='r', linestyle='-', linewidth=2)
+        plt.quiver(x[:-1], y[:-1], [x2 - x1 for x1, x2 in zip(x[:-1], x[1:])],
+                   [y2 - y1 for y1, y2 in zip(y[:-1], y[1:])], angles='xy', scale_units='xy', scale=1)
+
+        plt.title('Player Movement Trajectory')
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        plt.grid(True)
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.savefig('trajectory_plot.png')
+        plt.show()
 
     def show_target_images(self):
         targets = self.get_target_images()
@@ -53,7 +152,7 @@ class KeyboardPlayerPyGame(Player):
         concat_img = cv2.vconcat([hor1, hor2])
 
         w, h = concat_img.shape[:2]
-        
+
         color = (0, 0, 0)
 
         concat_img = cv2.line(concat_img, (int(h/2), 0), (int(h/2), w), color, 2)
@@ -112,7 +211,6 @@ class KeyboardPlayerPyGame(Player):
         rgb = convert_opencv_img_to_pygame(fpv)
         self.screen.blit(rgb, (0, 0))
         pygame.display.update()
-
 
 if __name__ == "__main__":
     import logging

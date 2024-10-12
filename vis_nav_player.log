@@ -1,0 +1,9 @@
+09-Oct-24 18:52:56 - INFO: player.py is using vis_nav_game 1.2.1
+09-Oct-24 18:52:58 - INFO: vis_nav_game.core version=1.2.1
+09-Oct-24 18:52:58 - INFO: Pass checking essential files
+09-Oct-24 18:53:01 - INFO: Start loading the map
+09-Oct-24 18:53:01 - INFO: No rules loaded from the maze.json!
+09-Oct-24 18:53:14 - INFO: Finished loading the map: takes 13.241431474685669 s
+09-Oct-24 18:53:16 - INFO: Target Images processing completed.
+09-Oct-24 18:55:01 - INFO: Saving the game, please wait...
+09-Oct-24 18:55:01 - INFO: Game saved successfully at C:\Users\sotom\OneDrive\Documentos\NYU\Timetable and courses\Fall 2024\Robot Perception\NYU\Project\vis_nav_player\data\save\game-20241009-185501.npy.
